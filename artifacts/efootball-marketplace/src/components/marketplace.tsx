@@ -36,6 +36,9 @@ export function Shell({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { cartCount } = useMarket();
   const links = [['/', 'Discover'], ['/products', 'Marketplace'], ['/offers', 'Offers'], ['/support', 'Support']];
+  if (location === '/') {
+    return <div className="reference-shell"><main>{children}</main></div>;
+  }
   return <div className="app-shell noise">
     <div className="bg-[#17213c] py-2 text-center text-[10px] font-bold uppercase tracking-[.18em] text-[#b8c8e1]">Verified handovers · Mock marketplace experience · Built for eFootball players</div>
     <header className="sticky top-0 z-40 border-b border-[#dfe5ee] bg-[#f5f7fa]/90 backdrop-blur-xl">
