@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "eFootball Marketplace"
+description = "A polished frontend marketplace for browsing and purchasing mock eFootball player accounts, coins, and GP packages with responsive product browsing, offers, checkout, account, and support screens."
+version = "1.0.0"
+id = "artifacts/efootball-marketplace"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19983
+
+[services.development]
+run = "pnpm --filter @workspace/efootball-marketplace run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/efootball-marketplace", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/efootball-marketplace/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19983"
+BASE_PATH = "/"
