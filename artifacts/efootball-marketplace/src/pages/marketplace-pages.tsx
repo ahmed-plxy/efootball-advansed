@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { ArrowLeft, ArrowRight, Check, ChevronDown, CircleHelp, Clock3, CreditCard, FileUp, Heart, LockKeyhole, MessageCircle, Package, RefreshCw, ShieldCheck, SlidersHorizontal, Sparkles, Star, UserRound, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { faqs, offers, products, type Product } from '@/data';
+import { useGetProduct, useListCategories, useListProducts, type ListProductsParams } from '@workspace/api-client-react';
+import { faqs, offers, formatGp, toMarketplaceProduct, type Product } from '@/data';
 import { CopyId, EmptyState, ProductCard, SearchBox, SectionHeading, SkeletonGrid, useMarket } from '@/components/marketplace';
 import { ReferenceHome } from '@/components/reference-home';
 
@@ -22,21 +23,69 @@ function Step({ n, title }: { n: string; title: string }) { return <div><p class
 export function ProductsPage() {
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState('All');
-  const [sort, setSort] = useState('featured');
+  const [sort, setSort] = useState<ListProductsParams['sort']>();
+  const [status, setStatus] = useState<ListProductsParams['status']>();
+  const [featured, setFeatured] = useState<boolean>();
+  const [offersOnly, setOffersOnly] = useState<boolean>();
+  const [minCoins, setMinCoins] = useState('');
+  const [maxCoins, setMaxCoins] = useState('');
+  const [minGp, setMinGp] = useState('');
+  const [maxGp, setMaxGp] = useState('');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const filtered = useMemo(() => products.filter((p) => (kind === 'All' || p.kind === kind) && `${p.title} ${p.players.join(' ')}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => sort === 'price-low' ? a.price - b.price : sort === 'price-high' ? b.price - a.price : Number(Boolean(b.featured)) - Number(Boolean(a.featured))), [query, kind, sort]);
-  const runSearch = (value: string) => { setQuery(value); setLoading(true); window.setTimeout(() => setLoading(false), 260); };
-  return <Page><div className="mb-10"><p className="text-[11px] font-bold uppercase tracking-[.2em] text-[#b71649]">The market</p><div className="mt-2 flex flex-wrap items-end justify-between gap-5"><h1 className="display text-6xl font-bold uppercase leading-none text-[#18233e]">Find your<br className="sm:hidden" /> next edge.</h1><p className="max-w-sm text-sm leading-6 text-[#758298]">Browse clear, player-first listings. Every card has the value up front.</p></div></div><div className="mb-7 flex flex-col gap-3 lg:flex-row"><div className="flex-1"><SearchBox value={query} onChange={runSearch} /></div><button onClick={() => setFiltersOpen(!filtersOpen)} className="flex h-12 items-center justify-center gap-2 rounded-xl border border-[#dce3ec] bg-white px-5 text-sm font-bold text-[#253451] lg:hidden" data-testid="button-open-filters"><SlidersHorizontal size={17} /> Filters</button><div className="hidden items-center gap-2 lg:flex">{['All', 'Account', 'Coins', 'GP'].map((item) => <button onClick={() => setKind(item)} className={`h-12 rounded-xl px-4 text-xs font-bold ${kind === item ? 'bg-[#17213c] text-white' : 'border border-[#dce3ec] bg-white text-[#65738a]'}`} key={item} data-testid={`button-filter-${item.toLowerCase()}`}>{item}</button>)}<select value={sort} onChange={(e) => setSort(e.target.value)} className="h-12 rounded-xl border border-[#dce3ec] bg-white px-4 text-xs font-bold text-[#65738a] outline-none" data-testid="select-sort"><option value="featured">Sort: Featured</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option></select></div></div>{filtersOpen && <div className="mb-6 flex flex-wrap gap-2 rounded-2xl bg-[#eaf0f5] p-3 lg:hidden">{['All', 'Account', 'Coins', 'GP'].map((item) => <button onClick={() => { setKind(item); setFiltersOpen(false); }} className={`rounded-lg px-4 py-2 text-xs font-bold ${kind === item ? 'bg-[#17213c] text-white' : 'bg-white text-[#65738a]'}`} key={item} data-testid={`button-mobile-filter-${item.toLowerCase()}`}>{item}</button>)}<select value={sort} onChange={(e) => setSort(e.target.value)} className="rounded-lg border-0 bg-white px-3 text-xs font-bold text-[#65738a]" data-testid="select-mobile-sort"><option value="featured">Featured</option><option value="price-low">Price: low</option><option value="price-high">Price: high</option></select></div>}<div className="mb-5 flex items-center justify-between"><p className="text-xs font-semibold text-[#8190a4]"><span className="font-bold text-[#253451]" data-testid="text-result-count">{filtered.length}</span> listings found</p>{query && <button onClick={() => setQuery('')} className="flex items-center gap-1 text-xs font-bold text-[#b71649]" data-testid="button-clear-search">Clear search <X size={13} /></button>}</div>{loading ? <SkeletonGrid /> : filtered.length ? <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{filtered.map((product) => <ProductCard key={product.id} product={product} />)}</div> : <EmptyState title="No listings match that search" detail="Try a player name, another category or clear the filters." action={<Button onClick={() => { setQuery(''); setKind('All'); }} className="bg-[#17213c] text-white" data-testid="button-reset-filters">Reset filters</Button>} />}</Page>;
+  const params: ListProductsParams = {
+    search: query || undefined,
+    category: kind === 'All' ? undefined : kind,
+    status,
+    featured,
+    offers: offersOnly,
+    minCoins: minCoins ? Number(minCoins) : undefined,
+    maxCoins: maxCoins ? Number(maxCoins) : undefined,
+    minGp: minGp ? Number(minGp) : undefined,
+    maxGp: maxGp ? Number(maxGp) : undefined,
+    minPrice: minPrice ? Number(minPrice) : undefined,
+    maxPrice: maxPrice ? Number(maxPrice) : undefined,
+    sort,
+  };
+  const { data, isLoading, isFetching, isError } = useListProducts(params);
+  const products = data?.map(toMarketplaceProduct) ?? [];
+  const runSearch = (value: string) => setQuery(value);
+  const resetFilters = () => {
+    setQuery('');
+    setKind('All');
+    setSort(undefined);
+    setStatus(undefined);
+    setFeatured(undefined);
+    setOffersOnly(undefined);
+    setMinCoins('');
+    setMaxCoins('');
+    setMinGp('');
+    setMaxGp('');
+    setMinPrice('');
+    setMaxPrice('');
+  };
+  const filterFields = <div className="flex flex-wrap gap-2 rounded-2xl bg-[#eaf0f5] p-3">
+    {['All', 'Account', 'Coins', 'GP'].map((item) => <button onClick={() => setKind(item)} className={`rounded-lg px-4 py-2 text-xs font-bold ${kind === item ? 'bg-[#17213c] text-white' : 'bg-white text-[#65738a]'}`} key={item} data-testid={`button-filter-${item.toLowerCase()}`}>{item}</button>)}
+    <select value={status ?? ''} onChange={(e) => setStatus((e.target.value || undefined) as ListProductsParams['status'])} className="rounded-lg border-0 bg-white px-3 text-xs font-bold text-[#65738a]" data-testid="select-availability"><option value="">All availability</option><option value="Available">Available</option><option value="Reserved">Reserved</option><option value="Sold">Sold</option><option value="Hidden">Hidden</option></select>
+    <select value={featured === undefined ? '' : String(featured)} onChange={(e) => setFeatured(e.target.value === '' ? undefined : e.target.value === 'true')} className="rounded-lg border-0 bg-white px-3 text-xs font-bold text-[#65738a]" data-testid="select-featured"><option value="">All listings</option><option value="true">Featured only</option><option value="false">Not featured</option></select>
+    <select value={offersOnly === undefined ? '' : String(offersOnly)} onChange={(e) => setOffersOnly(e.target.value === '' ? undefined : e.target.value === 'true')} className="rounded-lg border-0 bg-white px-3 text-xs font-bold text-[#65738a]" data-testid="select-offers"><option value="">All offers</option><option value="true">Offers only</option><option value="false">No offer</option></select>
+    <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3">
+      {[[minCoins, setMinCoins, 'Min coins'], [maxCoins, setMaxCoins, 'Max coins'], [minGp, setMinGp, 'Min GP'], [maxGp, setMaxGp, 'Max GP'], [minPrice, setMinPrice, 'Min price'], [maxPrice, setMaxPrice, 'Max price']].map(([value, setter, placeholder]) => <input key={placeholder as string} value={value as string} onChange={(e) => (setter as (value: string) => void)(e.target.value)} type="number" min="0" placeholder={placeholder as string} className="h-9 rounded-lg border-0 bg-white px-3 text-xs font-semibold text-[#65738a] outline-none" />)}
+    </div>
+  </div>;
+  return <Page><div className="mb-10"><p className="text-[11px] font-bold uppercase tracking-[.2em] text-[#b71649]">The market</p><div className="mt-2 flex flex-wrap items-end justify-between gap-5"><h1 className="display text-6xl font-bold uppercase leading-none text-[#18233e]">Find your<br className="sm:hidden" /> next edge.</h1><p className="max-w-sm text-sm leading-6 text-[#758298]">Browse clear, player-first listings. Every card has the value up front.</p></div></div><div className="mb-7 flex flex-col gap-3 lg:flex-row"><div className="flex-1"><SearchBox value={query} onChange={runSearch} /></div><button onClick={() => setFiltersOpen(!filtersOpen)} className="flex h-12 items-center justify-center gap-2 rounded-xl border border-[#dce3ec] bg-white px-5 text-sm font-bold text-[#253451] lg:hidden" data-testid="button-open-filters"><SlidersHorizontal size={17} /> Filters</button><div className="hidden items-center gap-2 lg:flex">{['All', 'Account', 'Coins', 'GP'].map((item) => <button onClick={() => setKind(item)} className={`h-12 rounded-xl px-4 text-xs font-bold ${kind === item ? 'bg-[#17213c] text-white' : 'border border-[#dce3ec] bg-white text-[#65738a]'}`} key={item} data-testid={`button-filter-${item.toLowerCase()}`}>{item}</button>)}<select value={sort ?? ''} onChange={(e) => setSort((e.target.value || undefined) as ListProductsParams['sort'])} className="h-12 rounded-xl border border-[#dce3ec] bg-white px-4 text-xs font-bold text-[#65738a] outline-none" data-testid="select-sort"><option value="">Sort: Featured</option><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="coins-low">Coins: low to high</option><option value="coins-high">Coins: high to low</option><option value="gp-low">GP: low to high</option><option value="gp-high">GP: high to low</option></select><button onClick={() => setFiltersOpen(!filtersOpen)} className="h-12 rounded-xl border border-[#dce3ec] bg-white px-4 text-xs font-bold text-[#65738a]" data-testid="button-advanced-filters">More filters</button></div></div>{filtersOpen && <div className="mb-6">{filterFields}</div>}<div className="mb-5 flex items-center justify-between"><p className="text-xs font-semibold text-[#8190a4]"><span className="font-bold text-[#253451]" data-testid="text-result-count">{products.length}</span> listings found</p>{(query || kind !== 'All' || sort || status || featured !== undefined || offersOnly !== undefined) && <button onClick={resetFilters} className="flex items-center gap-1 text-xs font-bold text-[#b71649]" data-testid="button-clear-search">Clear filters <X size={13} /></button>}</div>{isLoading || isFetching ? <SkeletonGrid /> : isError ? <EmptyState title="Market unavailable" detail="We could not load the live catalog. Please try again shortly." /> : products.length ? <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{products.map((product) => <ProductCard key={product.id} product={product} />)}</div> : <EmptyState title="No listings match that search" detail="Try a player name, another category or clear the filters." action={<Button onClick={resetFilters} className="bg-[#17213c] text-white" data-testid="button-reset-filters">Reset filters</Button>} />}</Page>;
 }
 
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const { addToCart } = useMarket();
-  const product = products.find((item) => item.id === id);
+  const { data: productData, isLoading, isError } = useGetProduct(id ?? '');
+  const product = productData ? toMarketplaceProduct(productData) : undefined;
   const [favorite, setFavorite] = useState(false);
-  if (!product) return <Page><EmptyState title="Listing not found" detail="This listing may have moved. Browse the current market to find your next edge." action={<Link href="/products" className="inline-flex rounded-xl bg-[#17213c] px-5 py-3 text-sm font-bold text-white" data-testid="link-back-market">Back to market</Link>} /></Page>;
+  if (isLoading) return <Page><SkeletonGrid /></Page>;
+  if (!product || isError) return <Page><EmptyState title="Listing not found" detail="This listing may have moved. Browse the current market to find your next edge." action={<Link href="/products" className="inline-flex rounded-xl bg-[#17213c] px-5 py-3 text-sm font-bold text-white" data-testid="link-back-market">Back to market</Link>} /></Page>;
   return <Page><Link href="/products" className="mb-8 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#738198]" data-testid="link-detail-back"><ArrowLeft size={15} /> Back to market</Link><div className="grid gap-8 lg:grid-cols-[.88fr_1.12fr]"><div><div className="ink-gradient relative min-h-[430px] overflow-hidden rounded-[28px] p-6 sm:p-10"><div className="absolute right-[-12%] top-[-10%] h-72 w-72 rounded-full border-[42px] border-[#6de8f5]/10" /><span className="relative rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-[#b3f2f6]">{product.edition}</span><div className="relative mx-auto mt-12 flex max-w-[280px] items-end gap-4"><div className="player-art grid h-[260px] w-[188px] place-items-center rounded-[25px] border-4 border-white/70 shadow-2xl"><span className="display text-[170px] font-bold italic leading-none text-white/75">{product.rating || 'C'}</span></div><div className="pb-5 text-white"><p className="display text-5xl font-bold">{product.rating || (product.coins / 10).toFixed(0)}</p><p className="mt-1 text-[10px] uppercase tracking-widest text-white/65">{product.kind === 'Account' ? 'overall' : 'value'}</p></div></div><p className="relative mt-8 text-center text-[10px] font-bold uppercase tracking-[.2em] text-white/45">efootball market / {product.id}</p></div><div className="mt-4 flex items-center justify-between"><CopyId id={product.id} /><button onClick={() => { setFavorite(!favorite); toast.success(favorite ? 'Removed from saved listings' : 'Saved to your shortlist'); }} className={`rounded-full p-3 ${favorite ? 'bg-[#fff1f4] text-[#b71649]' : 'bg-white text-[#7c899e]'}`} data-testid="button-favorite"><Heart size={18} fill={favorite ? 'currentColor' : 'none'} /></button></div></div><div className="pt-1"><div className="flex items-start justify-between gap-4"><div><p className="text-[11px] font-bold uppercase tracking-[.2em] text-[#b71649]">{product.kind} · {product.edition}</p><h1 className="display mt-3 max-w-xl text-5xl font-bold uppercase leading-[.92] text-[#18233e] sm:text-6xl" data-testid="text-product-title">{product.title}</h1></div><span className="mt-1 rounded-full bg-[#e8f8f1] px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-[#168056]">Available</span></div><p className="mt-7 max-w-xl text-sm leading-7 text-[#718097]">{product.description}</p><div className="mt-8 grid grid-cols-2 gap-3"><Value label="Coins" value={product.coins.toLocaleString()} coin="C" /><Value label="GP reserve" value={product.gp} coin="G" gp /></div>{product.players.length > 0 && <div className="mt-8"><p className="text-xs font-bold uppercase tracking-widest text-[#758198]">Squad highlights</p><div className="mt-3 flex flex-wrap gap-2">{product.players.map((player) => <span className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-[#32415d] shadow-sm" key={player}>{player}</span>)}</div></div>}<div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center"><span className="display text-4xl font-bold text-[#17213c]">{product.price.toLocaleString()} <small className="font-sans text-xs uppercase tracking-wider text-[#7b879a]">EGP</small></span><Button onClick={() => { addToCart(product); setLocation('/checkout'); }} className="flex-1 bg-[#6de8f5] text-[#13213c] hover:bg-[#b4f5fa]" data-testid="button-buy-product">Continue to checkout <ArrowRight className="ml-2 inline" size={17} /></Button></div><p className="mt-4 flex items-center gap-2 text-xs text-[#7a879b]"><LockKeyhole size={14} className="text-[#087f95]" /> Mock checkout · no payment is processed</p></div></div></Page>;
 }
 function Value({ label, value, coin, gp = false }: { label: string; value: string; coin: string; gp?: boolean }) { return <div className="rounded-2xl border border-[#e1e7ef] bg-white p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-[#8490a2]">{label}</p><p className="mt-2 flex items-center gap-2 text-xl font-bold text-[#243451]"><span className={gp ? 'gp' : 'coin'}>{coin}</span>{value}</p></div>; }

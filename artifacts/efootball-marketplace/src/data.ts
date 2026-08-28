@@ -1,3 +1,5 @@
+import type { Product as ApiProduct } from '@workspace/api-client-react';
+
 export type Product = {
   id: string;
   title: string;
@@ -14,16 +16,37 @@ export type Product = {
   description: string;
 };
 
-export const products: Product[] = [
-  { id: 'efm-1042', title: 'Nostalgia XI · Messi Edition', kind: 'Account', price: 1290, coins: 9730, gp: '11.96M', rating: 96, players: ['Lionel Messi', 'Neymar Jr', 'K. Mbappé'], edition: 'Epic Selection', accent: '#cb1246', featured: true, badge: 'Best seller', description: 'A carefully stacked account for classic number-10 football. Built for players who want a complete squad from day one.' },
-  { id: 'efm-1088', title: 'Barcelona Icons · Match Pass', kind: 'Account', price: 990, coins: 9690, gp: '11.98M', rating: 94, players: ['L. Messi', 'Xavi', 'R. Lewandowski'], edition: 'Big Time', accent: '#a41446', featured: true, badge: 'New drop', description: 'A balanced Barça-inspired lineup with premium forwards, a deep bench and enough GP to shape your own style.' },
-  { id: 'efm-1104', title: 'The Collector · 12 Epic Cards', kind: 'Account', price: 2250, coins: 12480, gp: '15.2M', rating: 98, players: ['C. Ronaldo', 'Zidane', 'Beckenbauer'], edition: 'Epic / Big Time', accent: '#172754', featured: true, badge: 'Rare', description: 'For the collector who wants a head start. Twelve high-rated cards and a strong GP reserve make this a complete premium build.' },
-  { id: 'efm-0981', title: 'Kickoff Coins · 2,180', kind: 'Coins', price: 430, coins: 2180, gp: '—', rating: 0, players: [], edition: 'Currency pack', accent: '#0b8499', description: 'A clean coin top-up for your next pack opening. Delivered to your account after proof review.' },
-  { id: 'efm-1003', title: 'Weekend GP Reserve · 8.5M', kind: 'GP', price: 590, coins: 0, gp: '8.5M', rating: 0, players: [], edition: 'Currency pack', accent: '#39447d', description: 'Enough GP to renew contracts, develop your squad and keep your weekend league rolling.' },
-  { id: 'efm-1120', title: 'Defensive Wall · Van Dijk Build', kind: 'Account', price: 1480, coins: 8820, gp: '10.4M', rating: 95, players: ['Virgil van Dijk', 'Rúben Dias', 'M. Neuer'], edition: 'Highlight', accent: '#263f74', description: 'A composed, defense-first account for patient build-up and clean sheets. Strong CB pairing included.' },
-  { id: 'efm-1147', title: 'Pack Opening · 5,700 Coins', kind: 'Coins', price: 980, coins: 5700, gp: '—', rating: 0, players: [], edition: 'Currency pack', accent: '#a81e52', badge: 'Popular', description: 'Five thousand seven hundred coins to spend on the players you actually want.' },
-  { id: 'efm-1165', title: 'Manager Mode · 14.8M GP', kind: 'GP', price: 850, coins: 0, gp: '14.8M', rating: 0, players: [], edition: 'Currency pack', accent: '#1c556c', description: 'A sizable GP wallet for training, renewals and building a squad that plays like yours.' },
-];
+export function formatGp(value: number): string {
+  if (!value) return '—';
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(2).replace(/\.?0+$/, '')}M`;
+  }
+  return value.toLocaleString();
+}
+
+export function toMarketplaceProduct(product: ApiProduct): Product {
+  const presentation = {
+    Account: { accent: '#263f74', edition: 'Epic Selection', rating: Math.max(90, Math.min(99, Math.round(product.coins / 130))) },
+    Coins: { accent: '#0b8499', edition: 'Currency pack', rating: 0 },
+    GP: { accent: '#39447d', edition: 'Currency pack', rating: 0 },
+  }[product.category] ?? { accent: '#17213c', edition: product.category, rating: 0 };
+
+  return {
+    id: product.id,
+    title: product.title,
+    kind: product.category as Product['kind'],
+    price: product.price,
+    coins: product.coins,
+    gp: formatGp(product.gp),
+    rating: presentation.rating,
+    players: [],
+    edition: presentation.edition,
+    accent: presentation.accent,
+    featured: product.featured,
+    badge: product.featured ? 'Featured' : undefined,
+    description: product.description,
+  };
+}
 
 export const offers = [
   { id: 'offer-1', label: 'FIRST KICK', title: '10% off your first order', detail: 'Use code FIRSTKICK at checkout. Applies to account listings and currency packs.', code: 'FIRSTKICK', tint: '#b71649' },

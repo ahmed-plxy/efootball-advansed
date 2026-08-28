@@ -3,13 +3,15 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Read-only catalog API for the eFootball marketplace
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: catalog
+    description: Public marketplace catalog
 paths:
   /healthz:
     get:
@@ -24,7 +26,196 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /products:
+    get:
+      operationId: listProducts
+      tags: [catalog]
+      summary: List products
+      description: Returns visible products with optional filtering and sorting.
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/Category"
+        - $ref: "#/components/parameters/Platform"
+        - $ref: "#/components/parameters/Status"
+        - $ref: "#/components/parameters/MinCoins"
+        - $ref: "#/components/parameters/MaxCoins"
+        - $ref: "#/components/parameters/MinGp"
+        - $ref: "#/components/parameters/MaxGp"
+        - $ref: "#/components/parameters/MinPrice"
+        - $ref: "#/components/parameters/MaxPrice"
+        - $ref: "#/components/parameters/Featured"
+        - $ref: "#/components/parameters/Offers"
+        - $ref: "#/components/parameters/Sort"
+      responses:
+        "200":
+          description: Product listings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [catalog]
+      summary: Get a product
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: Product details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [catalog]
+      summary: List product categories
+      responses:
+        "200":
+          description: Product categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+  /offers:
+    get:
+      operationId: listOffers
+      tags: [catalog]
+      summary: List offers
+      parameters:
+        - name: active
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: featured
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Promotional offers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Offer"
 components:
+  parameters:
+    ProductId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    Search:
+      name: search
+      in: query
+      required: false
+      schema:
+        type: string
+    Category:
+      name: category
+      in: query
+      required: false
+      schema:
+        type: string
+    Platform:
+      name: platform
+      in: query
+      required: false
+      schema:
+        type: string
+    Status:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/ProductStatus"
+    MinCoins:
+      name: minCoins
+      in: query
+      required: false
+      schema:
+        type: number
+        minimum: 0
+    MaxCoins:
+      name: maxCoins
+      in: query
+      required: false
+      schema:
+        type: number
+        minimum: 0
+    MinGp:
+      name: minGp
+      in: query
+      required: false
+      schema:
+        type: number
+        minimum: 0
+    MaxGp:
+      name: maxGp
+      in: query
+      required: false
+      schema:
+        type: number
+        minimum: 0
+    MinPrice:
+      name: minPrice
+      in: query
+      required: false
+      schema:
+        type: number
+        minimum: 0
+    MaxPrice:
+      name: maxPrice
+      in: query
+      required: false
+      schema:
+        type: number
+        minimum: 0
+    Featured:
+      name: featured
+      in: query
+      required: false
+      schema:
+        type: boolean
+    Offers:
+      name: offers
+      in: query
+      required: false
+      schema:
+        type: boolean
+    Sort:
+      name: sort
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+          - newest
+          - oldest
+          - price-low
+          - price-high
+          - coins-low
+          - coins-high
+          - gp-low
+          - gp-high
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +224,121 @@ components:
           type: string
       required:
         - status
-
+    ProductStatus:
+      type: string
+      enum: [Available, Reserved, Sold, Hidden]
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        image:
+          type: string
+        coins:
+          type: number
+        gp:
+          type: number
+        price:
+          type: number
+        originalPrice:
+          type: ["number", "null"]
+        category:
+          type: string
+        platform:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProductStatus"
+        productIdentifier:
+          type: string
+        deliveryMethod:
+          type: string
+        featured:
+          type: boolean
+        offerId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - description
+        - image
+        - coins
+        - gp
+        - price
+        - originalPrice
+        - category
+        - platform
+        - status
+        - productIdentifier
+        - deliveryMethod
+        - featured
+        - offerId
+        - createdAt
+        - updatedAt
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, slug, createdAt]
+    Offer:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        originalPrice:
+          type: number
+        discountedPrice:
+          type: number
+        discountPercentage:
+          type: number
+        image:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        active:
+          type: boolean
+        featured:
+          type: boolean
+      required:
+        - id
+        - title
+        - description
+        - originalPrice
+        - discountedPrice
+        - discountPercentage
+        - image
+        - startDate
+        - endDate
+        - active
+        - featured
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]

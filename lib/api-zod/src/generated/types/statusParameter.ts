@@ -5,7 +5,6 @@
  * Read-only catalog API for the eFootball marketplace
  * OpenAPI spec version: 0.1.0
  */
+import type { ProductStatus } from './productStatus';
 
-export interface HealthStatus {
-  status: string;
-}
+export type StatusParameter = ProductStatus;
